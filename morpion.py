@@ -6,11 +6,11 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.8
+#       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: ann
+#     display_name: Python 3
 #     language: python
-#     name: venv
+#     name: python3
 # ---
 
 import numpy as np
@@ -168,16 +168,32 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
 
 player_1 = QPlayer()
 player_2 = OptimalPlayer(epsilon=0.5)
-results = play_n_games(player_1, player_2, n_games=3000, update_players=1, verbose=False)
+results = play_n_games(player_1, player_2, n_games=100_000, update_players=1, verbose=False)
 
 # Group games into bins of 250 games
-results['bins'] = pd.cut(results.game + 1, range(0, 20_001, 250)).apply(lambda x: x.right)
+results['bins'] = pd.cut(results.game + 1, range(0, 100_001, 250)).apply(lambda x: x.right)
 
-results.head()
+results.sample(10)
 
 
-plt.figure(figsize=(15,10))
-sns.barplot(data=results[:1000], x='bins', y='reward_1', orient='v', ci=None)
+plt.figure(figsize=(20,10))
+g = sns.barplot(data=results, x='bins', y='reward_1', orient='v', ci=None)
+g.set_xticklabels(g.get_xticklabels(), rotation=90)
 plt.show()
 
+# + pycharm={"name": "#%%\n"}
+# sns.lineplot?
+
+# + pycharm={"name": "#%%\n"}
+sns.lineplot(results.groupby("bins").mean(), x="game", y="reward_1")
+# -
+
+f = plt.figure(figsize=(15, 5))
+g = sns.lineplot(data=results.groupby("bins").mean(), y="reward_1", x="game")
+g.set_ylabel("average reward");
+
+# + pycharm={"name": "#%%\n"}
+results
+
+# + pycharm={"name": "#%%\n"}
 
