@@ -6,11 +6,11 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.8
+#       jupytext_version: 1.13.7
 #   kernelspec:
 #     display_name: ann
 #     language: python
-#     name: venv
+#     name: python3
 # ---
 
 import numpy as np
@@ -148,7 +148,7 @@ class QPlayer:
             print(f"Next best move Q-value {greedy_q_value}")
 
 
-def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbose=False):
+def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbose=False, evaluate=None):
     """
     Play a specified number of tic tac toe games between two players.
     
@@ -160,6 +160,7 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
     env = TictactoeEnv()
     turns = np.array(['O', 'X'])
     results = []
+    evalutions = []
     reward_1 = reward_2 = 0
     for game_number in tqdm(range(n_games)):
         env.reset()
@@ -200,9 +201,36 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
                     print('Player 2 = ' +  turns[1])
                 # env.render()
                 # env.reset()
+                if(evaluate is not None and game_number != 0 and game_number % 250 == 0):
+                    evaluation = [game_number]
+                    if(evaluate == player_1):
+                        player_1.eval()
+                        m_opt = measure_score(player_1, "opt", verbose=False)
+                        m_rand = measure_score(player_1, "rand", verbose=False)
+                        evaluation.append(m_opt)
+                        evaluation.append(m_rand)
+                        player_1.train()
+                    if(evaluate == player_2 or evaluate=="both"):
+                        player_2.eval()
+                        m_opt = measure_score(player_2, "opt", verbose=False)
+                        m_rand = measure_score(player_2, "rand", verbose=False)
+                        evaluation.append(m_opt)
+                        evaluation.append(m_rand)
+                        player_2.train()
+                    evalutions.append(evaluation)
                 results.append([game_number + 1, reward_1, reward_2, turns[0], turns[1]])
                 break
-    return pd.DataFrame(data=results, columns=['game', 'reward_1', 'reward_2', 'player_1', 'player_2'])
+    
+    game_res = pd.DataFrame(data=results, columns=['game', 'reward_1', 'reward_2', 'player_1', 'player_2'])
+    perf_columns = ["game"]
+    if(evaluate == player_1 or evaluate == "both"):
+        perf_columns += ["player_1_opt", "player_1_rand"]
+    if(evaluate == player_2 or evaluate == "both"):
+        perf_columns += ["player_2_opt", "player_2_rand"]
+    agents_perf = pd.DataFrame(data=evalutions, columns=perf_columns)
+
+    results = game_res if evaluate is None else game_res.merge(agents_perf, how="outer", on="game")
+    return results
 
 
 def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42):
@@ -247,31 +275,8 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42):
 
     return m / n_games
 
-player_1 = QPlayer(debug=False,)
-player_2 = OptimalPlayer(epsilon=0.5)
-results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
 
-# + pycharm={"name": "#%%\n"}
-
-# -
-
-# 2.1.1
-
-# + pycharm={"name": "#%%\n"}
-player_1 = QPlayer(epsilon = lambda n: max(0.1, 0.8 * (1 - n / 10_000)))
-player_2 = OptimalPlayer(epsilon=0.5)
-results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
-# -
-
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
-
-
-def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42):
+def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbose=True):
     """
     Play a specified number of tic tac toe games between two players.
     
@@ -286,7 +291,8 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42):
     turns = np.array(['O', 'X'])
     m = 0
     rng = np.random.RandomState(seed)
-    for game_number in tqdm(range(n_games)):
+    iterator = tqdm(range(n_games)) if verbose else range(n_games)
+    for game_number in iterator:
 
         np.random.seed(rng.randint(low=0, high=32767))
         env.reset()
@@ -318,3 +324,96 @@ m_rand = measure_score(player_1, 'rand', n_games=500)
 m_rand
 
 m_rand
+
+m_opt = measure_score(player_1, 'opt', n_games=500)
+m_opt
+
+# ## 2.1 Learning from experts
+#
+# ### Question 1:
+
+player_1 = QPlayer(debug=False,)
+player_2 = OptimalPlayer(epsilon=0.5)
+results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
+# Group games into bins of 250 games
+results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+
+player_1 = QPlayer(debug=False,)
+player_2 = OptimalPlayer(epsilon=0.5)
+results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
+# Group games into bins of 250 games
+results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+
+# ### Question 2
+
+#
+
+# + pycharm={"name": "#%%\n"}
+player_1 = QPlayer(epsilon = lambda n: max(0.1, 0.8 * (1 - n / 10_000)))
+player_2 = OptimalPlayer(epsilon=0.5)
+results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
+# -
+
+# Group games into bins of 250 games
+results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+
+# Let's try several values of $n^*$ to see its effect. We use these values of $n^*$ :
+
+#
+
+ns_star = np.arange(0,42_000,4_000)
+ns_star[0] = 1
+ns_star
+
+# +
+results = []
+
+for n_star in ns_star :
+    print(f">> n* = {n_star}")
+    player_1 = QPlayer(epsilon = lambda n: max(0.1, 0.8 * (1 - n / n_star)))
+    player_2 = OptimalPlayer(epsilon=0.5)
+    avg_reward = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
+    avg_reward["n_star"] = n_star
+    results.append(avg_reward)
+
+
+# -
+
+def add_bins(subdf):
+    subdf['bins'] = pd.cut(results[1].game, range(0, 20_001, 250)).apply(lambda x: x.right)
+    return subdf
+effect = pd.concat(results)
+effect = effect.groupby("n_star").apply(add_bins).groupby(["n_star", "bins"]).mean()
+effect.to_csv("n_star_effect.csv")
+
+effect = effect.drop(["reward_2", "game"], axis=1)
+
+plt.figure(figsize=(20, 6))
+vals = pd.pivot(effect.reset_index(), index="n_star", columns="bins", values="reward_1")
+g = sns.heatmap(vals)
+g.set_xlabel("number of games")
+g.set_ylabel("n*")
+g.set_title("impact of n* on the average reward of the agent");
+
+plt.figure(figsize=(15, 6))
+g = sns.lineplot(data=effect.reset_index(), x="bins", y="reward_1", hue="n_star", palette='magma')
+g.set_title("effect of n* on the average reward")
+g.set_ylabel("reward")
+g.set_xlabel("number of games")
+
+# ### Question 3
+
+player_1 = QPlayer(epsilon = lambda n: max(0.1, 0.8 * (1 - n / n_star)))
+player_2 = OptimalPlayer(epsilon=0.5)
+results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False, evaluate=player_1)
+# Group games into bins of 250 games
+results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
+
+f = plt.figure(figsize=(15, 6))
+sns.lineplot(data=results[["game", 'player_1_opt', "player_1_rand"]].dropna(), x='game', y="player_1_opt")
+sns.lineplot(data=results[["game", 'player_1_opt', "player_1_rand"]].dropna(), x='game', y="player_1_rand")
+
+
