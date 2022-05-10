@@ -170,7 +170,7 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
     turns = np.array(['O', 'X'])
     results, evalutions = [], []
     reward_1 = reward_2 = 0
-    
+    rolling_win_average = 0
     for game_number in tqdm(range(n_games)):
         env.reset()
         grid, _, __ = env.observe()
@@ -219,6 +219,11 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
                     print('Game end, winner is player ' + str(winner))
                     print('Player 1 = ' +  turns[0])
                     print('Player 2 = ' +  turns[1])
+                
+                rolling_win_average += reward_1
+                if (game_number + 1) % 250 == 0:
+                    print(rolling_win_average / 250, end='\r')
+                    rolling_win_average = 0
 
                 # Compute M_opt and M_rand on the specified players every 250 games
                 if evaluate is not None and (game_number + 1) % 250 == 0:
@@ -323,13 +328,6 @@ results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, ver
 results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
 
-player_1 = QPlayer()
-player_2 = OptimalPlayer(epsilon=0.5)
-results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
-
 
 # ### Question 2
 
@@ -344,10 +342,6 @@ player_1 = QPlayer(epsilon=decreasing_epsilon)
 player_2 = OptimalPlayer(epsilon=0.5)
 results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
 # -
-
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
 
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
@@ -405,17 +399,6 @@ plt.show()
 # ### Question 3
 
 LOAD_RESULTS = False
-
-if not LOAD_RESULTS:
-    player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=1))
-    player_2 = OptimalPlayer(epsilon=0.5)
-    results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False, evaluate=player_1)
-    # Group games into bins of 250 games
-    results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-
-    f = plt.figure(figsize=(15, 6))
-    sns.lineplot(data=results[["game", 'player_1_opt', "player_1_rand"]].dropna(), x='game', y="player_1_opt")
-    sns.lineplot(data=results[["game", 'player_1_opt', "player_1_rand"]].dropna(), x='game', y="player_1_rand")
 
 if not LOAD_RESULTS:
     player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=1))
@@ -507,11 +490,6 @@ player = QPlayer(epsilon=0.4)
 ## make it learn by playing against itself
 autotrain_result = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
 # -
-
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
-plt.legend()
-plt.show()
 
 sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
 sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
@@ -716,7 +694,7 @@ class DQNPlayer:
     @staticmethod
     def _state2tensor(grid, player):
         """Returns a 3x3x2 tensor from the 2d grid"""
-        player_val = 1 if player == 'X' else 1
+        player_val = 1 if player == 'X' else -1
         opponent_val = -1 * player_val
 
         t = np.zeros((3,3,2))
@@ -729,7 +707,7 @@ class DQNPlayer:
         """Returns a random available action"""
         return int(np.random.choice(DQNPlayer._valid_action_indices(grid)))
         
-    def _choose_move(self, grid, player):
+    def _predict_move(self, grid, player):
         """
         Given the 9-action array associated to the current grid, 
         pick the move with highest Q-value
@@ -747,9 +725,9 @@ class DQNPlayer:
                 # random move
                 action = self._random_move(grid)
             else :
-                action = self._choose_move(grid, player)
+                action = self._predict_move(grid, player)
         else: # if not in training, choose greedy action
-            action = self._choose_move(grid, player)
+            action = self._predict_move(grid, player)
         
         # Save the current state and action for future update
         self.last_action[player] = action
@@ -778,7 +756,7 @@ class DQNPlayer:
 
         # Get the updated Q-values for the sampled future states
         future_rewards = self.target_model.predict(state_next_sample) # batch size x 9
-        future_rewards *= done_sample # set future rewards to 0 if it is already in a final state
+        future_rewards *= (1 - done_sample) # set future rewards to 0 if it is already in a final state
 
         # Q value = reward + discount factor * expected future reward
         target_q_values = rewards_sample + self.gamma * tf.reduce_max(future_rewards, axis=1)
@@ -813,6 +791,6 @@ n_games = 20_001
 results = play_n_games(player_1, player_2, n_games=n_games, update_players=1, verbose=False)
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, n_games, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")  #
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
 
 
