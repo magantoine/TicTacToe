@@ -6,11 +6,11 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.8
+#       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: ann
+#     display_name: Python 3
 #     language: python
-#     name: venv
+#     name: python3
 # ---
 
 import numpy as np
@@ -814,5 +814,3 @@ results = play_n_games(player_1, player_2, n_games=n_games, update_players=1, ve
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, n_games, 250)).apply(lambda x: x.right)
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")  #
-
-
