@@ -170,7 +170,7 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
     turns = np.array(['O', 'X'])
     results, evalutions = [], []
     reward_1 = reward_2 = 0
-    
+    rolling_win_average = 0
     for game_number in tqdm(range(n_games)):
         env.reset()
         grid, _, __ = env.observe()
@@ -219,6 +219,11 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
                     print('Game end, winner is player ' + str(winner))
                     print('Player 1 = ' +  turns[0])
                     print('Player 2 = ' +  turns[1])
+                
+                rolling_win_average += reward_1
+                if (game_number + 1) % 250 == 0:
+                    #print(rolling_win_average / 250, end='\r')
+                    rolling_win_average = 0
 
                 # Compute M_opt and M_rand on the specified players every 250 games
                 if evaluate is not None and (game_number + 1) % 250 == 0:
@@ -314,25 +319,38 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbo
 
 # ## 2.1 Learning from experts
 #
+# In this section, you will study whether Q-learning can learn to play Tic Tac Toe by playing against
+# Opt($\epsilon$opt) for some $\epsilon$opt ∈ [0, 1]. To do so, implement the Q-learning algorithm. To check the algorithm,
+# run a Q-learning agent, with a fixed and arbitrary $\epsilon \in [0, 1)$, against Opt(0.5) for 20’000 games – switch
+# the 1st player after every game.
+#
 # ### Question 1:
+#
+# Plot average reward for every 250 games during training – i.e. after the 50th game, plot the average reward of the first 250 games, after the 100th game, plot the average reward of games 51 to 100, etc. Does the agent learn to play Tic Tac Toe?
 
+# +
+## player we will train
 player_1 = QPlayer()
+
+## opponent, optimal player with 0.5 as epsilon_opt
 player_2 = OptimalPlayer(epsilon=0.5)
+
 results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
+
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+g = sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+g.set_title("Average reward every 250 games")
+g.set_ylabel("average reward")
 
-player_1 = QPlayer()
-player_2 = OptimalPlayer(epsilon=0.5)
-results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+plt.savefig("plots/question1.jpg", dpi=100)
 
+
+# -
 
 # ### Question 2
 
+## definition of the decreasing epsilon
 def decreasing_epsilon(n, eps_min=0.1, eps_max=0.8, n_star=10_000):
     return max(eps_min, eps_max * (1 - n / n_star))
 
@@ -340,24 +358,28 @@ def decreasing_epsilon(n, eps_min=0.1, eps_max=0.8, n_star=10_000):
 LOAD_RESULTS = False
 
 # + pycharm={"name": "#%%\n"}
+## player to train with decreasing epsilon
 player_1 = QPlayer(epsilon=decreasing_epsilon)
 player_2 = OptimalPlayer(epsilon=0.5)
 results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False)
+
+# +
+# Group games into bins of 250 games
+results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
+g = sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+g.set_ylabel("Average reward")
+g.set_title("Average reward every 250 games")
+
+plt.savefig("plots/question2.jpg")
 # -
-
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
-
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
 
 # Let's try several values of $n^*$ to see its effect. We use these values of $n^*$ :
 
 ns_star = np.arange(0,42_000,8_000)
 ns_star[0] = 1
 ns_star
+
+LOAD_RESULTS = True
 
 if not LOAD_RESULTS:
     results = []
@@ -371,9 +393,11 @@ if not LOAD_RESULTS:
         results.append(avg_reward)
 
 
+# +
 def add_bins(subdf):
-    subdf['bins'] = pd.cut(results[1].game, range(0, 20_001, 250)).apply(lambda x: x.right)
+    subdf['bins'] = pd.cut(subdf[1].game, range(0, 20_001, 250)).apply(lambda x: x.right)
     return subdf
+
 if not LOAD_RESULTS:
     effect = pd.concat(results)
     effect = effect.groupby("n_star").apply(add_bins).groupby(["n_star", "bins"]).mean()
@@ -381,14 +405,19 @@ if not LOAD_RESULTS:
 else:
     effect = pd.read_csv(RESULT_FOLDER + 'n_star_effect.csv')
 
+# -
+
 effect = effect.drop(["reward_2", "game"], axis=1)
 
+# +
 plt.figure(figsize=(20, 6))
 vals = pd.pivot(effect.reset_index(), index="n_star", columns="bins", values="reward_1")
 g = sns.heatmap(vals)
 g.set_xlabel("number of games")
 g.set_ylabel("n*")
-g.set_title("impact of n* on the average reward of the agent");
+g.set_title("impact of n* on the average reward of the agent")
+
+plt.savefig("plots/question2_2.jpg");
 
 # +
 plt.figure(figsize=(15, 6))
@@ -404,18 +433,7 @@ plt.show()
 
 # ### Question 3
 
-LOAD_RESULTS = False
-
-if not LOAD_RESULTS:
-    player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=1))
-    player_2 = OptimalPlayer(epsilon=0.5)
-    results = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False, evaluate=player_1)
-    # Group games into bins of 250 games
-    results['bins'] = pd.cut(results.game, range(0, 20_001, 250)).apply(lambda x: x.right)
-
-    f = plt.figure(figsize=(15, 6))
-    sns.lineplot(data=results[["game", 'player_1_opt', "player_1_rand"]].dropna(), x='game', y="player_1_opt")
-    sns.lineplot(data=results[["game", 'player_1_opt', "player_1_rand"]].dropna(), x='game', y="player_1_rand")
+LOAD_RESULTS = True
 
 if not LOAD_RESULTS:
     player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=1))
@@ -453,12 +471,14 @@ for n_star in n_stars :
     g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_opt", label=f"n_star={n_star}")
     g.set_ylabel('$M_{opt}$', fontsize=16)
 plt.show()
+plt.savefig("plots/question3_opt.jpg")
 
 f, a = plt.subplots(figsize=(16, 5))
 for n_star in n_stars :
     g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_rand", label=f"n_star={n_star}")
     g.set_ylabel('$M_{rand}$', fontsize=16)
 plt.show()
+plt.savefig("plots/question3_rand.jpg")
 # -
 
 # ### Question 4
@@ -482,10 +502,21 @@ for eps in eps_opts :
     temp_res = play_n_games(player_1, player_2, n_games=20_000, update_players=1, evaluate=player_1)
     temp_res["eps"] = eps
     eps_res.append(temp_res)
+# +
+f, a = plt.subplots(2, 2, figsize=(15, 10))
+for eps_unit_res, ax in zip(eps_res, a.flatten()):
+    eps_unit_res['bins'] = pd.cut(eps_unit_res.game, range(0, 20_001, 250)).apply(lambda x: x.right)
+    sns.lineplot(data=eps_unit_res, x="game", y="player_1_opt", label="opt", ax=ax)
+    sns.lineplot(data=eps_unit_res, x="game", y="player_1_rand", label="rand", color="orange", ax=ax)
+    ax.set_ylabel("")
+    ax.set_xlabel("")
+    ax.set_title(f"against Opt({eps_unit_res.eps.iloc[0]})")
+f.text(0.5, 0, "Number of games")
+f.text(0, 0.5, "Metric", rotation=90)
+f.suptitle("Evolution of $M_{rand}$ and $M_{opt}$ when training against Opt($\epsilon$)")
+
+plt.savefig("plots/question4.jpg", dpi=700);
 # -
-
-
-
 
 # ### Question 5
 #
@@ -506,16 +537,15 @@ player = QPlayer(epsilon=0.4)
 
 ## make it learn by playing against itself
 autotrain_result = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
-# -
 
+# +
 sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
+g = sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
+g.set_ylabel("metric")
+g.set_title("performance of self learning")
 plt.legend()
-plt.show()
 
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
-plt.legend()
+plt.savefig("plots/question7.jpg", dpi=700)
 plt.show()
 
 # +
@@ -538,13 +568,23 @@ else:
 
 autotrain_eps.player_1_rand.max(), autotrain_eps.player_1_opt.max()
 
+# +
 f, a = plt.subplots(2, 2, figsize=(15, 10))
 for eps, ax in zip(eps_opts, a.flatten()):
     sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_rand", x="game", label="M_rand", ax=ax)
     sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_opt", x="game", label="M_opt", ax=ax, color="orange")
-    ax.set_title(f"epsilon = {eps}")
+    ax.set_title(f"$\epsilon$ = {eps}")
+    ax.set_xlabel("")
+    ax.set_ylabel("")
 plt.legend()
+
+f.text(0.5, 0, "Number of games")
+f.text(0, 0.5, "Metric", rotation=90)
+f.suptitle("Evolution of $M_{rand}$ and $M_{opt}$ when training against Opt($\epsilon$)")
+
+plt.savefig("plots/question7_2.jpg", dpi=700)
 plt.show()
+# -
 
 
 # ### Question 8
@@ -716,7 +756,7 @@ class DQNPlayer:
     @staticmethod
     def _state2tensor(grid, player):
         """Returns a 3x3x2 tensor from the 2d grid"""
-        player_val = 1 if player == 'X' else 1
+        player_val = 1 if player == 'X' else -1
         opponent_val = -1 * player_val
 
         t = np.zeros((3,3,2))
@@ -729,7 +769,7 @@ class DQNPlayer:
         """Returns a random available action"""
         return int(np.random.choice(DQNPlayer._valid_action_indices(grid)))
         
-    def _choose_move(self, grid, player):
+    def _predict_move(self, grid, player):
         """
         Given the 9-action array associated to the current grid, 
         pick the move with highest Q-value
@@ -747,9 +787,9 @@ class DQNPlayer:
                 # random move
                 action = self._random_move(grid)
             else :
-                action = self._choose_move(grid, player)
+                action = self._predict_move(grid, player)
         else: # if not in training, choose greedy action
-            action = self._choose_move(grid, player)
+            action = self._predict_move(grid, player)
         
         # Save the current state and action for future update
         self.last_action[player] = action
@@ -778,7 +818,7 @@ class DQNPlayer:
 
         # Get the updated Q-values for the sampled future states
         future_rewards = self.target_model.predict(state_next_sample) # batch size x 9
-        future_rewards *= done_sample # set future rewards to 0 if it is already in a final state
+        future_rewards *= (1 - done_sample) # set future rewards to 0 if it is already in a final state
 
         # Q value = reward + discount factor * expected future reward
         target_q_values = rewards_sample + self.gamma * tf.reduce_max(future_rewards, axis=1)
@@ -807,10 +847,14 @@ class DQNPlayer:
             self.update_count = 0
 
 
+# +
 player_1 = DQNPlayer()
 player_2 = OptimalPlayer(epsilon=0.5)
 n_games = 20_001
 results = play_n_games(player_1, player_2, n_games=n_games, update_players=1, verbose=False)
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, n_games, 250)).apply(lambda x: x.right)
+
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")  #
+
+
