@@ -8,9 +8,9 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: ann
+#     display_name: annconda
 #     language: python
-#     name: venv
+#     name: annconda
 # ---
 
 import numpy as np
@@ -1055,6 +1055,54 @@ plt.show()
 # What are the highest values of Mopt and Mrand that you could achieve after playing 20’000 games?
 #
 
+
+
+# ### Question 16
+# After every 250 games during training, compute the ‘test’ Mopt and Mrand for different values of ε ∈ [0, 1). Plot Mopt and Mrand over time. Does the agent learn to play Tic Tac Toe? What is the effect of ε?
+# Expected answer: A figure showing Mopt and Mrand over time for different values of ε ∈ [0, 1) (caption length < 100 words).
+
+LOAD_RESULTS = False
+
+# +
+## build a Qplayer that you are going to train against itself
+player = DQNPlayer(epsilon=0.4)
+
+## make it learn by playing against itself
+autotrain_result = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
+# -
+
+sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
+sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
+plt.legend()
+plt.show()
+
+# +
+eps_opts = [0, 0.2, 0.4, 0.5]
+
+if not LOAD_RESULTS:
+    ## store the different results
+    eps_res = []
+    ## running multiple games for different values of eps_opt
+    for eps in eps_opts :
+        player = DQNPlayer(epsilon=eps)
+        temp_res = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
+        temp_res["eps"] = eps
+        eps_res.append(temp_res)
+    autotrain_eps = pd.concat(eps_res).dropna()
+    autotrain_eps.to_csv(RESULT_FOLDER + "question16.csv")
+else:
+    autotrain_eps = pd.read_csv(RESULT_FOLDER + "question16.csv", index_col=0)
+# -
+
+autotrain_eps.player_1_rand.max(), autotrain_eps.player_1_opt.max()
+
+f, a = plt.subplots(2, 2, figsize=(15, 10))
+for eps, ax in zip(eps_opts, a.flatten()):
+    sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_rand", x="game", label="M_rand", ax=ax)
+    sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_opt", x="game", label="M_opt", ax=ax, color="orange")
+    ax.set_title(f"epsilon = {eps}")
+plt.legend()
+plt.show()
 
 
 
