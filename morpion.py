@@ -8,9 +8,9 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: annconda
+#     display_name: ann
 #     language: python
-#     name: annconda
+#     name: venv
 # ---
 
 import numpy as np
@@ -970,7 +970,7 @@ sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1")
 #
 # After every 250 games during training, compute the ‘test’ Mopt and Mrand for your agents. Plot Mopt and Mrand over time. Does decreasing ε help training compared to having a fixed ε? What is the effect of n∗?
 
-LOAD_RESULTS = False
+LOAD_RESULTS = True
 
 n_stars = np.arange(0,42_000,8_000)
 n_stars[0] = 1
