@@ -4,3 +4,4 @@ saved_results/n_star_effect.csv filter=lfs diff=lfs merge=lfs -text
 saved_results/n_star_eval_rand_opt.csv filter=lfs diff=lfs merge=lfs -text
 saved_results/question7.csv filter=lfs diff=lfs merge=lfs -text
 saved_results/question8.csv filter=lfs diff=lfs merge=lfs -text
+plots/* filter=lfs diff=lfs merge=lfs -text
