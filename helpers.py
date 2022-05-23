@@ -288,8 +288,14 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbo
             else:
                 move = player_2.act(grid, player=turns[1], n=game_number)
             
-
-            grid, end, winner = env.step(move, print_grid=True)
+            if env.check_valid(move):
+                grid, end, winner = env.step(move, print_grid=verbose)
+                reward_1 = env.reward(turns[0])
+                reward_2 = -1 * reward_1
+            else:
+                # If a move is not valid then the current player lost the game
+                end = True
+                winner = turns[1] if is_player_1_move else turns[0]
 
             if end:
                 gain = 1 if winner == turns[0] else (-1 if winner == turns[1] else 0)
