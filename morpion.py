@@ -336,7 +336,7 @@ sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
 
 # ### Question 2
 
-def decreasing_epsilon(n, eps_min=0.1, eps_max=0.8, n_star=10_000):
+def decreasing_epsilon(n, n_star=10_000, eps_min=0.1, eps_max=0.8):
     return max(eps_min, eps_max * (1 - n / n_star))
 
 
@@ -469,7 +469,7 @@ eps_res = []
 ## running multiple games for different values of eps_opt
 for eps in eps_opts :
     print("Optimal player epsilon:", eps)
-    player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, opt_n_star))
+    player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=opt_n_star))
     player_2 = OptimalPlayer(epsilon=eps)
     temp_res = play_n_games(player_1, player_2, n_games=20_000, update_players=1, evaluate=player_1)
     temp_res["eps"] = eps
@@ -543,7 +543,7 @@ if not LOAD_RESULT:
 
     for n_star in ns_star :
         print(f">> n* = {n_star}")
-        player = QPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star))
+        player = QPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = n_star))
         result = play_n_games(player, player, n_games=20_000, update_players="both", verbose=False, evaluate=player)
         result["n_star"] = n_star
         results.append(result)
@@ -1006,6 +1006,8 @@ for n_star in n_stars :
 plt.show()
 # -
 
+# optimal n* may be 1 as it seems to converge towards 0 at the end or 32000 which seems to converge faster towards 0 even though the last value is at -1
+
 # ### Question 14
 # Choose the best value of n∗ that you found. Run DQN against $Opt(ε_{opt})$ for different values of εopt for 20’000 games – switch the 1st player after every game. Choose several values of εopt from a reasonably wide interval between 0 to 1 – particularly, include εopt = 0.
 #
@@ -1013,31 +1015,49 @@ plt.show()
 # After every 250 games during training, compute the ‘test’ Mopt and Mrand for your agents 4
 # – for each value of εopt. Plot Mopt and Mrand over time. What do you observe? How can you explain it? Expected answer: A figure showing Mopt and Mrand over time for different values of εopt (caption length < 250 words).
 
-eps_opts = (np.arange(10) / 10)[::2]
+LOAD_RESULTS = True
+
+eps_opts = (np.arange(10) / 10)[::2] 
 eps_opts
 
 # +
 ## optimal n*
-opt_n_star = 4_000
+opt_n_star = 32_000
 
-## store the differnet results
-eps_res = []
-## running multiple games for different values of eps_opt
-for eps in eps_opts :
-    print("Optimal player epsilon:", eps)
-    player_1 = DQNPlayer(epsilon = lambda n: decreasing_epsilon(n, opt_n_star))
-    player_2 = OptimalPlayer(epsilon=eps)
-    temp_res = play_n_games(player_1, player_2, n_games=20_000, update_players=1, evaluate=player_1)
-    temp_res["eps"] = eps
-    eps_res.append(temp_res)
-    
-    eps_eval = pd.concat(eps_res)
-    eps_eval = eps_eval.dropna(subset=['player_1_opt', 'player_1_rand']).drop(["reward_1", "reward_2"], axis=1)
+if not LOAD_RESULTS:
+    ## store the differnet results
+    eps_res = []
+    ## running multiple games for different values of eps_opt
+    for eps in eps_opts :
+        print("Optimal player epsilon:", eps)
+        player_1 = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star=opt_n_star))
+        player_2 = OptimalPlayer(epsilon=eps)
+        temp_res = play_n_games(player_1, player_2, n_games=20_000, update_players=1, evaluate=player_1)
+        temp_res["eps"] = eps
+        eps_res.append(temp_res)
 
-    eps_eval.to_csv(RESULT_FOLDER + "question14.csv")
+        eps_eval = pd.concat(eps_res)
+        eps_eval = eps_eval.dropna(subset=['player_1_opt', 'player_1_rand']).drop(["reward_1", "reward_2"], axis=1)
+
+        eps_eval.to_csv(RESULT_FOLDER + "question14.csv")
 else:
-    eps_eval = pd.read_csv(RESULT_FOLDER + "question14.csv")
+    eps_eval = pd.read_csv(RESULT_FOLDER + "32000_question14.csv")
 # +
+#nstar = 1
+f, a = plt.subplots(figsize=(16, 5))
+for eps in eps_opts :
+    g = sns.lineplot(data=eps_eval[eps_eval.eps == eps], x="game", y="player_1_opt", label=f"$\epsilon=${eps}")
+    g.set_ylabel('$M_{opt}$', fontsize=16)
+plt.show()
+
+f, a = plt.subplots(figsize=(16, 5))
+for eps in eps_opts :
+    g = sns.lineplot(data=eps_eval[eps_eval.eps == eps], x="game", y="player_1_rand", label=f"$\epsilon=${eps}")
+    g.set_ylabel('$M_{rand}$', fontsize=16)
+plt.show()
+
+# +
+#nstar = 32 000
 f, a = plt.subplots(figsize=(16, 5))
 for eps in eps_opts :
     g = sns.lineplot(data=eps_eval[eps_eval.eps == eps], x="game", y="player_1_opt", label=f"$\epsilon=${eps}")
@@ -1058,23 +1078,12 @@ plt.show()
 
 
 # ### Question 16
+# For different values of ε ∈ [0, 1), run a DQN agent against itself for 20’000 games – i.e. both players use the same neural network and share the same replay buffer.
+#
 # After every 250 games during training, compute the ‘test’ Mopt and Mrand for different values of ε ∈ [0, 1). Plot Mopt and Mrand over time. Does the agent learn to play Tic Tac Toe? What is the effect of ε?
 # Expected answer: A figure showing Mopt and Mrand over time for different values of ε ∈ [0, 1) (caption length < 100 words).
 
-LOAD_RESULTS = False
-
-# +
-## build a Qplayer that you are going to train against itself
-player = DQNPlayer(epsilon=0.4)
-
-## make it learn by playing against itself
-autotrain_result = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
-# -
-
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
-plt.legend()
-plt.show()
+LOAD_RESULTS = True
 
 # +
 eps_opts = [0, 0.2, 0.4, 0.5]
@@ -1104,5 +1113,36 @@ for eps, ax in zip(eps_opts, a.flatten()):
 plt.legend()
 plt.show()
 
+# Question 17. 
+#
+# Instead of fixing ε, use ε(n) in Equation 1 with different values of n∗.
+#
+# After every 250 games during training, compute the ‘test’ Mopt and Mrand for your agents. Plot Mopt and Mrand over time. Does decreasing ε help training compared to having a fixed ε? What is the effect of n∗?
+# Expected answer: A figure showing Mopt and Mrand over time for different values of speeds of n∗ (caption length < 100 words).
+
+
+LOAD_RESULT = True
+
+if not LOAD_RESULT:
+    results = []
+    for n_star in n_stars :
+        print(f">> n* = {n_star}")
+        player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = n_star))
+        result = play_n_games(player, player, n_games=20_000, update_players="both", verbose=False, evaluate=player)
+        result["n_star"] = n_star
+        results.append(result)
+    effect = pd.concat(results).dropna()
+    effect.to_csv(RESULT_FOLDER + "question17.csv")
+else:
+    effect = pd.read_csv(RESULT_FOLDER + "question17.csv")
+
+f, a = plt.subplots(3, 2, figsize=(15, 15), sharey=True)
+for n_star, ax in zip(n_stars, a.flatten()):
+    sns.lineplot(data=effect[effect.n_star == n_star], x="game", y="player_1_rand", ax=ax, label="rand")
+    sns.lineplot(data=effect[effect.n_star == n_star], x="game", y="player_1_opt", ax=ax, label="opt", color="orange")
+    ax.set_ylabel("metric value")
+    ax.set_title(f"n* = {n_star}")
+plt.legend()
+plt.show()
 
 
