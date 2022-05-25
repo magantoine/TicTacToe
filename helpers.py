@@ -419,17 +419,21 @@ class DQNPlayer:
         return int(np.random.choice(DQNPlayer._valid_action_indices(grid)))
         #return random.randrange(9)
 
+    def get_q_values(self, grid, player):
+        # Convert the grid to an input tensor of shape (1, 3, 3, 2)
+        state_tensor = DQNPlayer._state2input(grid, player)[None,:,:,:] 
+        # Predict output
+        action_probs = self.model(state_tensor, training=False)[0]
+        return action_probs
+
     def _predict_move(self, grid, player):
         """
         Given the 9-action array associated to the current grid, 
         pick the move with highest Q-value
         """
-        # Convert the grid to an input tensor of shape (1, 3, 3, 2)
-        state_tensor = DQNPlayer._state2input(grid, player)[None,:,:,:] 
-        # Predict output
-        action_probs = self.model(state_tensor, training=False)
+        action_probs = self.get_q_values(grid, player)
         # Choose the action with the highest output
-        action_chosen = tf.argmax(action_probs[0]).numpy() 
+        action_chosen = tf.argmax(action_probs).numpy() 
         return int(action_chosen)
     
     def act(self, grid, player='X', n=0):
