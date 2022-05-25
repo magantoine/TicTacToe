@@ -16,6 +16,8 @@
 # %load_ext autoreload
 # %autoreload 2
 
+from os.path import join
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -379,7 +381,7 @@ plt.show()
 # Repeat the training but without the replay buffer and with a batch size of 1: At every step, update the network by using only the latest transition. What do you observe?
 # Expected answer: A figure with two subplots showing average reward and average training loss during training (caption length < 50 words).
 
-LOAD_RESULTS = False
+LOAD_RESULTS = True
 
 if not LOAD_RESULTS:
     player_1 = DQNPlayer(buffer_size=1, batch_size=1)
@@ -387,7 +389,7 @@ if not LOAD_RESULTS:
     results = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
     results.to_csv(RESULT_FOLDER + 'fast_question12.csv', index=False)
 else:
-    results = pd.read_csv(RESULT_FOLDER + 'question12.csv')
+    results = pd.read_csv(RESULT_FOLDER + 'fast_question12.csv')
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
@@ -420,7 +422,20 @@ if not LOAD_RESULTS:
 
     n_star_eval.to_csv(RESULT_FOLDER + "question13.csv")
 else:
-    n_star_eval = pd.read_csv(RESULT_FOLDER + "question13.csv")
+    n_star_eval = pd.read_csv(RESULT_FOLDER + "fast_question13.csv")
+
+# +
+f, a = plt.subplots(figsize=(16, 5))
+for n_star in n_stars :
+    g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_opt", label=f"n_star={n_star}")
+    g.set_ylabel('$M_{opt}$', fontsize=16)
+plt.show()
+
+f, a = plt.subplots(figsize=(16, 5))
+for n_star in n_stars :
+    g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_rand", label=f"n_star={n_star}")
+    g.set_ylabel('$M_{rand}$', fontsize=16)
+plt.show()
 
 # +
 f, a = plt.subplots(figsize=(16, 5))
@@ -436,7 +451,10 @@ for n_star in n_stars :
 plt.show()
 # -
 
-# optimal n* may be 1 as it seems to converge towards 0 at the end or 32000 which seems to converge faster towards 0 even though the last value is at -1
+# optimal n* = 8000 is the only value that converges toward 0 without fluctuations to -1
+
+## optimal n*
+opt_n_star = 8000
 
 # ### Question 14
 # Choose the best value of n∗ that you found. Run DQN against $Opt(ε_{opt})$ for different values of εopt for 20’000 games – switch the 1st player after every game. Choose several values of εopt from a reasonably wide interval between 0 to 1 – particularly, include εopt = 0.
@@ -449,10 +467,6 @@ LOAD_RESULTS = True
 
 eps_opts = (np.arange(10) / 10)[::2] 
 eps_opts
-
-# +
-## optimal n*
-opt_n_star = 32_000
 
 if not LOAD_RESULTS:
     ## store the differnet results
@@ -471,9 +485,9 @@ if not LOAD_RESULTS:
 
         eps_eval.to_csv(RESULT_FOLDER + "question14.csv")
 else:
-    eps_eval = pd.read_csv(RESULT_FOLDER + "32000_question14.csv")
+    eps_eval = pd.read_csv(RESULT_FOLDER + "8000_fast_question14.csv")
 # +
-#nstar = 32 000
+#nstar = 8000
 f, a = plt.subplots(figsize=(16, 5))
 for eps in eps_opts :
     g = sns.lineplot(data=eps_eval[eps_eval.eps == eps], x="game", y="player_1_opt", label=f"$\epsilon=${eps}")
@@ -491,7 +505,9 @@ plt.show()
 # What are the highest values of Mopt and Mrand that you could achieve after playing 20’000 games?
 #
 
+print('Max Mrand:', max(n_star_eval.player_1_rand.max(), eps_eval.player_1_rand.max()))
 
+print('Max Mopt:', max(n_star_eval.player_1_opt.max(), eps_eval.player_1_opt.max()))
 
 # ### Question 16
 # For different values of ε ∈ [0, 1), run a DQN agent against itself for 20’000 games – i.e. both players use the same neural network and share the same replay buffer.
@@ -501,7 +517,6 @@ plt.show()
 
 LOAD_RESULTS = True
 
-# +
 eps_opts = [0, 0.2, 0.4, 0.5]
 
 if not LOAD_RESULTS:
@@ -517,9 +532,6 @@ if not LOAD_RESULTS:
     autotrain_eps.to_csv(RESULT_FOLDER + "question16.csv")
 else:
     autotrain_eps = pd.read_csv(RESULT_FOLDER + "question16.csv", index_col=0)
-# -
-
-autotrain_eps.player_1_rand.max(), autotrain_eps.player_1_opt.max()
 
 f, a = plt.subplots(2, 2, figsize=(15, 10))
 for eps, ax in zip(eps_opts, a.flatten()):
@@ -547,16 +559,37 @@ if not LOAD_RESULT:
         result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False, evaluate=player)
         result["n_star"] = n_star
         results.append(result)
-    effect = pd.concat(results).dropna()
-    effect.to_csv(RESULT_FOLDER + "question17.csv")
+    autotrain_n_star = pd.concat(results).dropna()
+    autotrain_n_star.to_csv(RESULT_FOLDER + "question17.csv")
 else:
-    effect = pd.read_csv(RESULT_FOLDER + "question17.csv")
+    autotrain_n_star = pd.read_csv(RESULT_FOLDER + "question17.csv")
 
 f, a = plt.subplots(3, 2, figsize=(15, 15), sharey=True)
 for n_star, ax in zip(n_stars, a.flatten()):
-    sns.lineplot(data=effect[effect.n_star == n_star], x="game", y="player_1_rand", ax=ax, label="rand")
-    sns.lineplot(data=effect[effect.n_star == n_star], x="game", y="player_1_opt", ax=ax, label="opt", color="orange")
+    sns.lineplot(data=autotrain_n_star[autotrain_n_star.n_star == n_star], x="game", y="player_1_rand", ax=ax, label="rand")
+    sns.lineplot(data=autotrain_n_star[autotrain_n_star.n_star == n_star], x="game", y="player_1_opt", ax=ax, label="opt", color="orange")
     ax.set_ylabel("metric value")
     ax.set_title(f"n* = {n_star}")
 plt.legend()
 plt.show()
+
+# ## Question 18
+
+print('Max Mrand:', max(autotrain_n_star.player_1_rand.max(), autotrain_eps.player_1_rand.max()))
+
+print('Max Mopt:', max(autotrain_n_star.player_1_opt.max(), autotrain_eps.player_1_opt.max()))
+
+# ## Question 19
+
+import dill
+
+player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
+result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False)
+
+with open(join(RESULT_FOLDER,'dqn_player.pkl'), "wb") as f:
+    dill.dump(player, f)
+
+with open(join(RESULT_FOLDER,'dqn_player.pkl'), "rb") as f:
+    player = dill.load(f)
+
+
