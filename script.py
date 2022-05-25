@@ -1,3 +1,5 @@
+import dill
+from os.path import join
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -80,18 +82,15 @@ def question17():
     effect = pd.concat(results).dropna()
     effect.to_csv(RESULT_FOLDER + "fast_question17.csv")
 
-def main():
-    # print(">>> Question 12")
-    # question12()
-    # print(">>> Question 13")
-    # question13()
-    print(">>> Question 14")
-    question14(8000)
-    print(">>> Question 16")
-    question16()
-    print(">>> Question 17")
-    question17()
+def question19():
+    player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
+    result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False)
+    with open(join(RESULT_FOLDER,'dqn_player.pkl'), "wb") as f:
+        dill.dump(player, f)
 
+def main():
+    print(">>> Question 19")
+    question19()
 
 if __name__ == '__main__':
     main()
