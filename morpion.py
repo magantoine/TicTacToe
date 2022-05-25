@@ -16,10 +16,10 @@
 # %load_ext autoreload
 # %autoreload 2
 
-from os.path import join
-import pickle
+import dill
 import numpy as np
 import pandas as pd
+from os.path import join
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tic_env import OptimalPlayer
@@ -362,6 +362,11 @@ for state in [winning_state, losing_state, unsure_state]:
 
 LOAD_RESULTS = True
 
+fontsize= 16
+
+PLOT_FOLDER = 'plots'
+
+# +
 if not LOAD_RESULTS:
     #linear activation and clipping only future_rewards
     player_1 = DQNPlayer()
@@ -372,10 +377,16 @@ else:
     results = pd.read_csv(RESULT_FOLDER + 'question11.csv')
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+
+fig, axes = plt.subplots(1,2, figsize=(15,5))
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
+axes[0].set_ylabel("reward", fontsize=fontsize)
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1", ax=axes[1])
+axes[1].set_ylabel("loss", fontsize=fontsize)
+plt.suptitle('Average reward and loss through the training games', fontsize=fontsize)
+plt.savefig(join(PLOT_FOLDER, "question11.png"), dpi=200)
 plt.show()
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1")
-plt.show()
+# -
 
 # ### Question 12. 
 # Repeat the training but without the replay buffer and with a batch size of 1: At every step, update the network by using only the latest transition. What do you observe?
@@ -383,6 +394,7 @@ plt.show()
 
 LOAD_RESULTS = True
 
+# +
 if not LOAD_RESULTS:
     player_1 = DQNPlayer(buffer_size=1, batch_size=1)
     player_2 = OptimalPlayer(epsilon=0.5)
@@ -392,9 +404,16 @@ else:
     results = pd.read_csv(RESULT_FOLDER + 'fast_question12.csv')
 # Group games into bins of 250 games
 results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1")
+
+fig, axes = plt.subplots(1,2, figsize=(15,5))
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
+axes[0].set_ylabel("reward", fontsize=fontsize)
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1", ax=axes[1])
+axes[1].set_ylabel("loss", fontsize=fontsize)
+plt.suptitle('Average reward and loss without replay buffer', fontsize=fontsize)
+plt.savefig(join(PLOT_FOLDER, "question12.png"), dpi=200)
 plt.show()
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1")
+# -
 
 # ### Question 13
 #
@@ -424,32 +443,28 @@ if not LOAD_RESULTS:
 else:
     n_star_eval = pd.read_csv(RESULT_FOLDER + "fast_question13.csv")
 
-# +
-f, a = plt.subplots(figsize=(16, 5))
-for n_star in n_stars :
-    g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_opt", label=f"n_star={n_star}")
-    g.set_ylabel('$M_{opt}$', fontsize=16)
-plt.show()
 
-f, a = plt.subplots(figsize=(16, 5))
-for n_star in n_stars :
-    g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_rand", label=f"n_star={n_star}")
-    g.set_ylabel('$M_{rand}$', fontsize=16)
-plt.show()
+def plot_comparison(df, title, filename, hue):
+    palette='Spectral'
+    f, axes = plt.subplots(2,1,figsize=(16, 10))
+    sns.lineplot(data=df, x="game", y="player_1_opt", hue=hue, ax=axes[0],palette=palette)
+    axes[0].set_ylabel('$M_{opt}$', fontsize=fontsize)
 
-# +
-f, a = plt.subplots(figsize=(16, 5))
-for n_star in n_stars :
-    g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_opt", label=f"n_star={n_star}")
-    g.set_ylabel('$M_{opt}$', fontsize=16)
-plt.show()
+    sns.lineplot(data=df, x="game", y="player_1_rand", hue=hue, ax=axes[1], palette=palette)
+    axes[1].set_ylabel('$M_{rand}$', fontsize=fontsize)
 
-f, a = plt.subplots(figsize=(16, 5))
-for n_star in n_stars :
-    g = sns.lineplot(data=n_star_eval[n_star_eval.n_star == n_star], x="game", y="player_1_rand", label=f"n_star={n_star}")
-    g.set_ylabel('$M_{rand}$', fontsize=16)
-plt.show()
-# -
+    plt.suptitle(title, fontsize=fontsize)
+    fig.tight_layout()
+    plt.savefig(join(PLOT_FOLDER, filename), dpi=200)
+    plt.show()
+
+
+plot_comparison(n_star_eval, r"$M_{opt}$ and $M_{rand}$ for different $n^*$",
+                'question13.png', 'n_star')
+
+plot_comparison(n_star_eval.query('n_star == 8000'), 
+                r"$M_{opt}$ and $M_{rand}$ for $n^* = 8000$",
+                '8000_question13.png', 'n_star')
 
 # optimal n* = 8000 is the only value that converges toward 0 without fluctuations to -1
 
@@ -486,20 +501,8 @@ if not LOAD_RESULTS:
         eps_eval.to_csv(RESULT_FOLDER + "question14.csv")
 else:
     eps_eval = pd.read_csv(RESULT_FOLDER + "8000_fast_question14.csv")
-# +
-#nstar = 8000
-f, a = plt.subplots(figsize=(16, 5))
-for eps in eps_opts :
-    g = sns.lineplot(data=eps_eval[eps_eval.eps == eps], x="game", y="player_1_opt", label=f"$\epsilon=${eps}")
-    g.set_ylabel('$M_{opt}$', fontsize=16)
-plt.show()
-
-f, a = plt.subplots(figsize=(16, 5))
-for eps in eps_opts :
-    g = sns.lineplot(data=eps_eval[eps_eval.eps == eps], x="game", y="player_1_rand", label=f"$\epsilon=${eps}")
-    g.set_ylabel('$M_{rand}$', fontsize=16)
-plt.show()
-# -
+plot_comparison(eps_eval, r"$M_{opt}$ and $M_{rand}$ with $n^* = 8000$ against $Opt(\epsilon) $",
+                'question14.png', 'eps')
 
 # ### Question 15
 # What are the highest values of Mopt and Mrand that you could achieve after playing 20’000 games?
@@ -533,13 +536,20 @@ if not LOAD_RESULTS:
 else:
     autotrain_eps = pd.read_csv(RESULT_FOLDER + "question16.csv", index_col=0)
 
-f, a = plt.subplots(2, 2, figsize=(15, 10))
+# +
+f, a = plt.subplots(2, 2, figsize=(15, 10), sharey=True, sharex=True)
 for eps, ax in zip(eps_opts, a.flatten()):
-    sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_rand", x="game", label="M_rand", ax=ax)
-    sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_opt", x="game", label="M_opt", ax=ax, color="orange")
-    ax.set_title(f"epsilon = {eps}")
+    sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_rand", x="game", label="$M_{rand}$", ax=ax)
+    sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_opt", x="game", label="$M_{opt}$", ax=ax, color="orange")
+    ax.set_title(f"$\epsilon = ${eps}", fontsize=fontsize)
+    ax.set_ylabel("$M_{opt}$ vs $M_{rand}$", fontsize=fontsize)
+    
+plt.suptitle('The effect of $\epsilon$ during self learning', fontsize=fontsize)
+fig.tight_layout()
 plt.legend()
+plt.savefig(join(PLOT_FOLDER, 'question16.png'), dpi=200)
 plt.show()
+# -
 
 # ## Question 17. 
 #
@@ -564,14 +574,20 @@ if not LOAD_RESULT:
 else:
     autotrain_n_star = pd.read_csv(RESULT_FOLDER + "question17.csv")
 
-f, a = plt.subplots(3, 2, figsize=(15, 15), sharey=True)
+# +
+f, a = plt.subplots(3, 2, figsize=(15, 17), sharey=True, sharex=True)
 for n_star, ax in zip(n_stars, a.flatten()):
     sns.lineplot(data=autotrain_n_star[autotrain_n_star.n_star == n_star], x="game", y="player_1_rand", ax=ax, label="rand")
     sns.lineplot(data=autotrain_n_star[autotrain_n_star.n_star == n_star], x="game", y="player_1_opt", ax=ax, label="opt", color="orange")
-    ax.set_ylabel("metric value")
-    ax.set_title(f"n* = {n_star}")
+    ax.set_ylabel("$M_{opt}$ vs $M_{rand}$", fontsize=fontsize)
+    ax.set_title(f"n* = {n_star}", fontsize=fontsize)
+
+plt.suptitle('The effect of $n^*$ during self learning', fontsize=fontsize, )
+fig.tight_layout()
 plt.legend()
+plt.savefig(join(PLOT_FOLDER, 'question17.png'), dpi=200)
 plt.show()
+# -
 
 # ## Question 18
 
@@ -581,15 +597,62 @@ print('Max Mopt:', max(autotrain_n_star.player_1_opt.max(), autotrain_eps.player
 
 # ## Question 19
 
-import dill
+LOAD_RESULTS = True
 
 player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
-result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False)
 
-with open(join(RESULT_FOLDER,'dqn_player.pkl'), "wb") as f:
-    dill.dump(player, f)
+if not LOAD_RESULTS:
+    player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
+    result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False)
+    with open(join(RESULT_FOLDER,'dqn_player.pkl'), "wb") as f:
+        dill.dump(player, f)
+else:
+    with open(join(RESULT_FOLDER,'dqn_player.pkl'), "rb") as f:
+        player = dill.load(f)
+        player.eval()
 
-with open(join(RESULT_FOLDER,'dqn_player.pkl'), "rb") as f:
-    player = dill.load(f)
+state_1 = ([[1, -1, 0],
+            [0, 1, -1],
+            [0, 0, 0]], 'X', 'Does the model win?')
+state_2 = ([[1, -1, 0],
+            [0, 1, 0],
+            [0, 0, 0]], 'O', 'Does the model block?')
+state_3 = ([[1, -1, 0], 
+            [1, -1, 0],
+            [0, 0, 0]], 'X', 'Does the model win or block?')
+
+fig, axes = plt.subplots(3, 1, figsize=(10,25))
+for i, (grid, player_val, caption) in enumerate([state_1, state_2, state_3]):
+    q_values = player.get_q_values(grid, player_val).numpy().reshape((3,3))
+    annot = np.array(grid).astype(str)
+    annot = np.where(annot == '1', 'X', annot)
+    annot = np.where(annot == '-1', 'O', annot)
+    annot = np.where(annot == '0', '-', annot)
+    sns.heatmap(q_values, cmap='Blues',annot=annot, ax=axes[i], fmt='', 
+                annot_kws={"size": 25}, xticklabels=False, yticklabels=False)
+    
+    axes[i].set_title(caption)
+
+# ## Question 20
+
+
+
+# For QDN training we don't take the maximum Mopt value obtained because it also has the lowest Mrand. Instead we take the best compromise between Mopt and Mrand, which is attained for epsilon is fixed at 0.6
+
+eps_eval.player_1_rand.max(), eps_eval.player_1_opt.max(),
+
+eps_eval[eps_eval.eps == 0.6].player_1_rand.max(), eps_eval[eps_eval.eps == 0.6].player_1_opt.max(),
+
+eps_eval[(eps_eval.player_1_opt > 0.8 * eps_eval[eps_eval.eps == 0.6].player_1_opt.max()) & 
+         (eps_eval.player_1_rand > 0.8 * eps_eval[eps_eval.eps == 0.6].player_1_rand.max())].head()
+
+# DQN from experts T_Train = 6748
+
+autotrain_eps[(autotrain_eps.player_1_rand > 0.8 * autotrain_eps.player_1_rand.max())
+              & (autotrain_eps.player_1_opt > 0.8 * autotrain_eps.player_1_opt.max())]
+
+autotrain_eps.player_1_rand.max(), autotrain_eps.player_1_opt.max(),
+
+# DQN self-learning T_Train = 8749
 
 
