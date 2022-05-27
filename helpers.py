@@ -8,6 +8,9 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from collections import deque, namedtuple
+import matplotlib.pyplot as plt
+import seaborn as sns
+from os.path import join
 
 RESULT_FOLDER ='saved_results/'
 N_GAMES = 20_000
@@ -527,3 +530,18 @@ class DQNPlayer:
             self.update_counter = 0
         return loss.numpy()#, q_values.numpy().min(), q_values.numpy().max()
 
+
+def plot_comparison(df, title, filename, hue):
+    palette='Spectral'
+    fig, axes = plt.subplots(2,1,figsize=(16, 10))
+    sns.lineplot(data=df, x="game", y="player_1_opt", hue=hue, ax=axes[0],palette=palette)
+    axes[0].set_ylabel('$M_{opt}$', fontsize=fontsize)
+
+    sns.lineplot(data=df, x="game", y="player_1_rand", hue=hue, ax=axes[1], palette=palette)
+    axes[1].set_ylabel('$M_{rand}$', fontsize=fontsize)
+
+    plt.suptitle(title, fontsize=fontsize)
+    fig.tight_layout()
+    if filename:
+        plt.savefig(join(PLOT_FOLDER, filename), dpi=200)
+    plt.show()

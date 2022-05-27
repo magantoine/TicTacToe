@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tic_env import OptimalPlayer
 from helpers import QPlayer, play_n_games, DQNPlayer, RESULT_FOLDER, N_GAMES,\
-fontsize, PLOT_FOLDER
+fontsize, PLOT_FOLDER, plot_comparison
 
 
 # $Q(S, A) ← Q(S, A) + α(R + γ max_a Q(S′, a) − Q(S, A))$
@@ -425,23 +425,6 @@ if not LOAD_RESULTS:
 else:
     n_star_eval = pd.read_csv(RESULT_FOLDER + "fast_question13.csv")
 
-
-def plot_comparison(df, title, filename, hue):
-    palette='Spectral'
-    f, axes = plt.subplots(2,1,figsize=(16, 10))
-    sns.lineplot(data=df, x="game", y="player_1_opt", hue=hue, ax=axes[0],palette=palette)
-    axes[0].set_ylabel('$M_{opt}$', fontsize=fontsize)
-
-    sns.lineplot(data=df, x="game", y="player_1_rand", hue=hue, ax=axes[1], palette=palette)
-    axes[1].set_ylabel('$M_{rand}$', fontsize=fontsize)
-
-    plt.suptitle(title, fontsize=fontsize)
-    fig.tight_layout()
-    if filename:
-        plt.savefig(join(PLOT_FOLDER, filename), dpi=200)
-    plt.show()
-
-
 plot_comparison(n_star_eval, r"$M_{opt}$ and $M_{rand}$ for different $n^*$",
                 'question13.png', 'n_star')
 
@@ -620,23 +603,21 @@ for i, (grid, player_val, caption) in enumerate([state_1, state_2, state_3]):
                 annot_kws={"size": 25}, xticklabels=False, yticklabels=False)
     axes[i].set_title(caption + '\n Turn to play: ' + player_val, fontsize=fontsize)
 
-plt.savefig(join(PLOT_FOLDER, 'question19.png'), dpi=200)
 fig.tight_layout()
+plt.savefig(join(PLOT_FOLDER, 'question19.png'), dpi=200)
+
 plt.show()
 # -
 
 # ## Question 20
 
-# For QDN training we don't take the maximum Mopt value obtained because it also has the lowest Mrand. Instead we take the best compromise between Mopt and Mrand, which is attained for epsilon is fixed at 0.6
-
 eps_eval.player_1_rand.max(), eps_eval.player_1_opt.max(),
 
-eps_eval[eps_eval.eps == 0.6].player_1_rand.max(), eps_eval[eps_eval.eps == 0.6].player_1_opt.max(),
+eps_eval[eps_eval.player_1_opt > 0.8 * 0.5].head(1)
 
-eps_eval[(eps_eval.player_1_opt > 0.8 * eps_eval[eps_eval.eps == 0.6].player_1_opt.max()) & 
-         (eps_eval.player_1_rand > 0.8 * eps_eval[eps_eval.eps == 0.6].player_1_rand.max())].head()
+eps_eval[eps_eval.player_1_rand > 0.8 * 0.926].head(1)
 
-# DQN from experts T_Train = 6748
+# DQN from experts T_Train = 8748
 
 autotrain_eps[(autotrain_eps.player_1_rand > 0.8 * autotrain_eps.player_1_rand.max())
               & (autotrain_eps.player_1_opt > 0.8 * autotrain_eps.player_1_opt.max())]
