@@ -155,6 +155,7 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
     turns = np.array(['O', 'X'])
     results, evalutions = [], []
     reward_1 = reward_2 = 0
+
     rolling_win_average = 0
     for game_number in tqdm(range(n_games)):
         env.reset()
@@ -190,13 +191,13 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
                 if (end or not is_player_1_move) and (update_players == 1 or update_players == 'both'):
                     if verbose :
                         print(f"Updating {player_1} with reward {reward_1}")
-                    player_1.update(grid, reward_1, turns[0])
+                    loss_1 = player_1.update(grid, reward_1, turns[0])
                     
                 # Update player 2's Q-value if player 1 just played or if it's the end
                 if (end or is_player_1_move) and (update_players == 2 or update_players == 'both'):
                     if verbose :
                         print(f"Updating {player_2} with reward {reward_2}")
-                    player_2.update(grid, reward_2, turns[1])
+                    loss_2 = player_2.update(grid, reward_2, turns[1])
 
             if end:
                 if verbose:
@@ -233,10 +234,10 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
                         
                     evalutions.append(evaluation)
                     
-                results.append([game_number + 1, reward_1, reward_2, turns[0], turns[1]])
+                results.append([game_number + 1, reward_1, reward_2, turns[0], turns[1], loss_1, loss_2])
                 break
     
-    game_res = pd.DataFrame(data=results, columns=['game', 'reward_1', 'reward_2', 'player_1', 'player_2'])
+    game_res = pd.DataFrame(data=results, columns=['game', 'reward_1', 'reward_2', 'player_1', 'player_2', 'loss_1', 'loss_2'])
     perf_columns = ["game"]
     
     if evaluate == player_1 or evaluate == "both":
@@ -533,8 +534,6 @@ def play_n_games_dqn(player_1, player_2, n_games=20_000, update_players=None, ve
     turns = np.array(['O', 'X'])
     results, evalutions = [], []
     reward_1 = reward_2 = 0
-    loss_1 = loss_2 = 0
-    #rolling_win_average = n_illegal_move = loss = min_target= max_target= counter = 0
     for game_number in tqdm(range(n_games)):
         env.reset()
         grid, _, __ = env.observe()
@@ -553,7 +552,6 @@ def play_n_games_dqn(player_1, player_2, n_games=20_000, update_players=None, ve
                 reward_1 = env.reward(turns[0])
                 reward_2 = -1 * reward_1
             else:
-                #n_illegal_move += 1
             # If a move is not valid then the current player lost the game
                 end = True
                 winner = turns[1] if is_player_1_move else turns[0]
@@ -571,11 +569,7 @@ def play_n_games_dqn(player_1, player_2, n_games=20_000, update_players=None, ve
                 if (end or not is_player_1_move) and update_players in [1, 'both']:
                     if verbose :
                         print(f"Updating {player_1} with reward {reward_1}")
-                    loss_1 = player_1.update(grid, reward_1, turns[0])#,  upd_min_target, upd_max_target
-                    #loss += upd_loss
-                    #min_target += upd_min_target
-                    #max_target += upd_max_target
-                    #counter+= 1
+                    loss_1 = player_1.update(grid, reward_1, turns[0])
                     
                 # Update player 2's Q-value if player 1 just played or if it's the end
                 if (end or is_player_1_move) and update_players in [2, 'both']:
@@ -589,12 +583,6 @@ def play_n_games_dqn(player_1, player_2, n_games=20_000, update_players=None, ve
                     print('Game end, winner is player ' + str(winner))
                     print('Player 1 = ' +  turns[0])
                     print('Player 2 = ' +  turns[1])
-                
-#                rolling_win_average += reward_1
-#                if (game_number + 1) % 250 == 0:
-#                    print(f"win rate: {rolling_win_average / 250:.2f}, {n_illegal_move} illegal moves, \
-#number of updates: {counter}, loss_1: {loss_1/counter:.4f}, min q-value: {min_target/counter:.2f}, max q-value: {max_target/counter:.2f}", end='\r')
-#                    rolling_win_average = n_illegal_move = loss = min_target =max_target = counter = 0
 
                 # Compute M_opt and M_rand on the specified players every 250 games
                 if evaluate is not None and (game_number + 1) % 250 == 0:

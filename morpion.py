@@ -360,11 +360,32 @@ for state in [winning_state, losing_state, unsure_state]:
 # Plot average reward and average training loss for every 250 games during training. Does the loss decrease? Does the agent learn to play Tic Tac Toe?
 # Expected answer: A figure with two subplots (caption length < 50 words). Specify your choice of ε.
 
-LOAD_RESULTS = True
+LOAD_RESULTS = False
 
 fontsize= 16
 
 PLOT_FOLDER = 'plots'
+
+# +
+if not LOAD_RESULTS:
+    #linear activation and clipping only future_rewards
+    player_1 = DQNPlayer()
+    player_2 = OptimalPlayer(epsilon=0.5)
+    results = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
+    results.to_csv(RESULT_FOLDER + 'question11.csv', index=False)
+else:
+    results = pd.read_csv(RESULT_FOLDER + 'question11.csv')
+# Group games into bins of 250 games
+results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
+
+fig, axes = plt.subplots(1,2, figsize=(15,5))
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
+axes[0].set_ylabel("reward", fontsize=fontsize)
+sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1", ax=axes[1])
+axes[1].set_ylabel("loss", fontsize=fontsize)
+plt.suptitle('Average reward and loss through the training games', fontsize=fontsize)
+plt.savefig(join(PLOT_FOLDER, "question11.png"), dpi=200)
+plt.show()
 
 # +
 if not LOAD_RESULTS:
@@ -508,6 +529,8 @@ plot_comparison(eps_eval, r"$M_{opt}$ and $M_{rand}$ with $n^* = 8000$ against $
 # What are the highest values of Mopt and Mrand that you could achieve after playing 20’000 games?
 #
 
+eps_eval[eps_eval.player_1_opt == 0.5]
+
 print('Max Mrand:', max(n_star_eval.player_1_rand.max(), eps_eval.player_1_rand.max()))
 
 print('Max Mopt:', max(n_star_eval.player_1_opt.max(), eps_eval.player_1_opt.max()))
@@ -590,6 +613,10 @@ plt.show()
 # -
 
 # ## Question 18
+#
+# What are the highest values of Mopt and Mrand that you could achieve after playing 20’000 games?
+
+autotrain_eps[autotrain_eps.player_1_opt == 0.5]
 
 print('Max Mrand:', max(autotrain_n_star.player_1_rand.max(), autotrain_eps.player_1_rand.max()))
 
@@ -598,8 +625,6 @@ print('Max Mopt:', max(autotrain_n_star.player_1_opt.max(), autotrain_eps.player
 # ## Question 19
 
 LOAD_RESULTS = True
-
-player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
 
 if not LOAD_RESULTS:
     player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
@@ -611,17 +636,18 @@ else:
         player = dill.load(f)
         player.eval()
 
-state_1 = ([[1, -1, 0],
-            [0, 1, -1],
-            [0, 0, 0]], 'X', 'Does the model win?')
-state_2 = ([[1, -1, 0],
+state_1 = (np.array([[1, -1, -1],
+            [1, 0, 0],
+            [0, 0, 0]]), 'X', 'Does the model win?')
+state_2 = (np.array([[1, -1, 0],
             [0, 1, 0],
-            [0, 0, 0]], 'O', 'Does the model block?')
-state_3 = ([[1, -1, 0], 
+            [0, 0, 0]]), 'O', 'Does the model block?')
+state_3 = (np.array([[1, -1, 0], 
             [1, -1, 0],
-            [0, 0, 0]], 'X', 'Does the model win or block?')
+            [0, 0, 0]]), 'X', 'Does the model win or block?')
 
-fig, axes = plt.subplots(3, 1, figsize=(10,25))
+# +
+fig, axes = plt.subplots(1, 3, figsize=(16,5))
 for i, (grid, player_val, caption) in enumerate([state_1, state_2, state_3]):
     q_values = player.get_q_values(grid, player_val).numpy().reshape((3,3))
     annot = np.array(grid).astype(str)
@@ -630,12 +656,14 @@ for i, (grid, player_val, caption) in enumerate([state_1, state_2, state_3]):
     annot = np.where(annot == '0', '-', annot)
     sns.heatmap(q_values, cmap='Blues',annot=annot, ax=axes[i], fmt='', 
                 annot_kws={"size": 25}, xticklabels=False, yticklabels=False)
-    
-    axes[i].set_title(caption)
+    axes[i].set_title(caption + '\n Turn to play: ' + player_val, fontsize=fontsize)
+
+plt.savefig(join(PLOT_FOLDER, 'question19.png'), dpi=200)
+fig.tight_layout()
+plt.show()
+# -
 
 # ## Question 20
-
-
 
 # For QDN training we don't take the maximum Mopt value obtained because it also has the lowest Mrand. Instead we take the best compromise between Mopt and Mrand, which is attained for epsilon is fixed at 0.6
 
