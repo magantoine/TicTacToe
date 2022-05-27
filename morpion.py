@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tic_env import OptimalPlayer
 from helpers import QPlayer, play_n_games, DQNPlayer, RESULT_FOLDER, N_GAMES,\
-play_n_games_dqn, fontsize, PLOT_FOLDER
+fontsize, PLOT_FOLDER
 
 
 # $Q(S, A) ← Q(S, A) + α(R + γ max_a Q(S′, a) − Q(S, A))$
@@ -347,26 +347,7 @@ plt.show()
 # Plot average reward and average training loss for every 250 games during training. Does the loss decrease? Does the agent learn to play Tic Tac Toe?
 # Expected answer: A figure with two subplots (caption length < 50 words). Specify your choice of ε.
 
-LOAD_RESULTS = False
-
-# +
-if not LOAD_RESULTS:
-
-    player_1 = DQNPlayer()
-    player_2 = OptimalPlayer(epsilon=0.5)
-    results = play_n_games(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
-    results.to_csv(RESULT_FOLDER + 'deterministic_question11.csv', index=False)
-else:
-    results = pd.read_csv(RESULT_FOLDER + 'question11.csv')
-
-fig, axes = plt.subplots(1,2, figsize=(15,5))
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
-axes[0].set_ylabel("reward", fontsize=fontsize)
-sns.lineplot(data=results.groupby("bins").mean(), x="game", y="loss_1", ax=axes[1])
-axes[1].set_ylabel("loss", fontsize=fontsize)
-plt.suptitle('Average reward and loss through the training games', fontsize=fontsize)
-plt.savefig(join(PLOT_FOLDER, "question11.png"), dpi=200)
-plt.show()
+LOAD_RESULTS = True
 
 # +
 if not LOAD_RESULTS:
@@ -404,6 +385,7 @@ if not LOAD_RESULTS:
     results.to_csv(RESULT_FOLDER + 'fast_question12.csv', index=False)
 else:
     results = pd.read_csv(RESULT_FOLDER + 'fast_question12.csv')
+    results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
 
 fig, axes = plt.subplots(1,2, figsize=(15,5))
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
@@ -455,7 +437,8 @@ def plot_comparison(df, title, filename, hue):
 
     plt.suptitle(title, fontsize=fontsize)
     fig.tight_layout()
-    plt.savefig(join(PLOT_FOLDER, filename), dpi=200)
+    if filename:
+        plt.savefig(join(PLOT_FOLDER, filename), dpi=200)
     plt.show()
 
 
