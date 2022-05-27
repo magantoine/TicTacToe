@@ -24,12 +24,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tic_env import OptimalPlayer
 from helpers import QPlayer, play_n_games, DQNPlayer, RESULT_FOLDER, N_GAMES,\
-play_n_games_dqn
+play_n_games_dqn, fontsize, PLOT_FOLDER
 
-
-import helpers
-from importlib import reload
-reload(helpers)
 
 # $Q(S, A) ← Q(S, A) + α(R + γ max_a Q(S′, a) − Q(S, A))$
 
@@ -346,9 +342,6 @@ plt.show()
 
 # # DQN
 
-
-
-
 # ### Question 11
 #
 # Plot average reward and average training loss for every 250 games during training. Does the loss decrease? Does the agent learn to play Tic Tac Toe?
@@ -356,21 +349,15 @@ plt.show()
 
 LOAD_RESULTS = False
 
-fontsize= 16
-
-PLOT_FOLDER = 'plots'
-
 # +
 if not LOAD_RESULTS:
-    #linear activation and clipping only future_rewards
+
     player_1 = DQNPlayer()
     player_2 = OptimalPlayer(epsilon=0.5)
-    results = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
-    results.to_csv(RESULT_FOLDER + 'question11.csv', index=False)
+    results = play_n_games(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
+    results.to_csv(RESULT_FOLDER + 'deterministic_question11.csv', index=False)
 else:
     results = pd.read_csv(RESULT_FOLDER + 'question11.csv')
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
 
 fig, axes = plt.subplots(1,2, figsize=(15,5))
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
@@ -386,7 +373,7 @@ if not LOAD_RESULTS:
     #linear activation and clipping only future_rewards
     player_1 = DQNPlayer()
     player_2 = OptimalPlayer(epsilon=0.5)
-    results = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
+    results = play_n_games(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
     results.to_csv(RESULT_FOLDER + 'question11.csv', index=False)
 else:
     results = pd.read_csv(RESULT_FOLDER + 'question11.csv')
@@ -413,12 +400,10 @@ LOAD_RESULTS = True
 if not LOAD_RESULTS:
     player_1 = DQNPlayer(buffer_size=1, batch_size=1)
     player_2 = OptimalPlayer(epsilon=0.5)
-    results = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
+    results = play_n_games(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False)
     results.to_csv(RESULT_FOLDER + 'fast_question12.csv', index=False)
 else:
     results = pd.read_csv(RESULT_FOLDER + 'fast_question12.csv')
-# Group games into bins of 250 games
-results['bins'] = pd.cut(results.game, range(0, N_GAMES + 1, 250)).apply(lambda x: x.right)
 
 fig, axes = plt.subplots(1,2, figsize=(15,5))
 sns.lineplot(data=results.groupby("bins").mean(), x="game", y="reward_1", ax=axes[0])
@@ -447,7 +432,7 @@ if not LOAD_RESULTS:
     player_2 = OptimalPlayer(epsilon=0.5)
     for n_star in n_stars:
         player_1 = DQNPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=n_star))
-        temp_res = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False, evaluate=player_1)
+        temp_res = play_n_games(player_1, player_2, n_games=N_GAMES, update_players=1, verbose=False, evaluate=player_1)
         temp_res["n_star"] = n_star
         res.append(temp_res)
 
@@ -506,7 +491,7 @@ if not LOAD_RESULTS:
         print("Optimal player epsilon:", eps)
         player_1 = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star=opt_n_star))
         player_2 = OptimalPlayer(epsilon=eps)
-        temp_res = play_n_games_dqn(player_1, player_2, n_games=N_GAMES, update_players=1, evaluate=player_1)
+        temp_res = play_n_games(player_1, player_2, n_games=N_GAMES, update_players=1, evaluate=player_1)
         temp_res["eps"] = eps
         eps_res.append(temp_res)
 
@@ -545,7 +530,7 @@ if not LOAD_RESULTS:
     ## running multiple games for different values of eps_opt
     for eps in eps_opts :
         player = DQNPlayer(epsilon=eps)
-        temp_res = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", evaluate=player)
+        temp_res = play_n_games(player, player, n_games=N_GAMES, update_players="both", evaluate=player)
         temp_res["eps"] = eps
         eps_res.append(temp_res)
     autotrain_eps = pd.concat(eps_res).dropna()
@@ -583,7 +568,7 @@ if not LOAD_RESULT:
     for n_star in n_stars :
         print(f">> n* = {n_star}")
         player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = n_star))
-        result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False, evaluate=player)
+        result = play_n_games(player, player, n_games=N_GAMES, update_players="both", verbose=False, evaluate=player)
         result["n_star"] = n_star
         results.append(result)
     autotrain_n_star = pd.concat(results).dropna()

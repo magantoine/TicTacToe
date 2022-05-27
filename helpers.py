@@ -11,6 +11,8 @@ from collections import deque, namedtuple
 
 RESULT_FOLDER ='saved_results/'
 N_GAMES = 20_000
+fontsize= 16
+PLOT_FOLDER = 'plots'
 
 class QPlayer:
 
@@ -154,8 +156,7 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
     env = TictactoeEnv()
     turns = np.array(['O', 'X'])
     results, evalutions = [], []
-    reward_1 = reward_2 = 0
-
+    reward_1 = reward_2 = loss_1 = loss_2 = 0
     rolling_win_average = 0
     for game_number in tqdm(range(n_games)):
         env.reset()
@@ -248,6 +249,8 @@ def play_n_games(player_1, player_2, n_games=20_000, update_players=None, verbos
     agents_perf = pd.DataFrame(data=evalutions, columns=perf_columns)
 
     results = game_res if evaluate is None else game_res.merge(agents_perf, how="outer", on="game")
+    # Group games into bins of 250 games
+    results['bins'] = pd.cut(results.game, range(0, n_games + 1, 250)).apply(lambda x: x.right)
     return results
 
 
@@ -523,111 +526,4 @@ class DQNPlayer:
             self._update_target()
             self.update_counter = 0
         return loss.numpy()#, q_values.numpy().min(), q_values.numpy().max()
-
-
-# +
-def play_n_games_dqn(player_1, player_2, n_games=20_000, update_players=None, verbose=False, evaluate=None, seed=42):
-    """
-    Play a specified number of tic tac toe games between two players.
-    
-    player_1: first player. Needs to implement methods `act` and `set_player`
-    player_2: second player. Needs to implement methods `act` and `set_player`
-    n_games: number of games played between the two players
-    update_players: determines which players need to be updated after each move. Can take value 1, 2 or 'both'.
-    """
-    np.random.seed(seed)
-    env = TictactoeEnv()
-    turns = np.array(['O', 'X'])
-    results, evalutions = [], []
-    reward_1 = reward_2 = 0
-    for game_number in tqdm(range(n_games)):
-        env.reset()
-        grid, _, __ = env.observe()
-        turns = turns[[1,0]] # Swap X and O every game
-
-        for j in range(9):
-            is_player_1_move = env.current_player == turns[0]
-            if is_player_1_move:
-                move = player_1.act(grid, player=turns[0], n=game_number)
-            else:
-                move = player_2.act(grid, player=turns[1], n=game_number)
-            
-
-            if env.check_valid(move):
-                grid, end, winner = env.step(move, print_grid=verbose)
-                reward_1 = env.reward(turns[0])
-                reward_2 = -1 * reward_1
-            else:
-            # If a move is not valid then the current player lost the game
-                end = True
-                winner = turns[1] if is_player_1_move else turns[0]
-                reward_1 = -1 if is_player_1_move else 1
-                reward_2 = -1 * reward_1
-
-            if verbose :
-                print(f"Reward 1: {reward_1}")
-                print(f"Reward 2: {reward_2}")
-                
-            # Check if we need to update any player's parameters
-            if (end or j >= 2) and update_players is not None:
-                
-                # Update player 1's Q-value if player 2 just played or if it's the end
-                if (end or not is_player_1_move) and update_players in [1, 'both']:
-                    if verbose :
-                        print(f"Updating {player_1} with reward {reward_1}")
-                    loss_1 = player_1.update(grid, reward_1, turns[0])
-                    
-                # Update player 2's Q-value if player 1 just played or if it's the end
-                if (end or is_player_1_move) and update_players in [2, 'both']:
-                    if verbose :
-                        print(f"Updating {player_2} with reward {reward_2}")
-                    loss_2 = player_2.update(grid, reward_2, turns[1])
-
-            if end:
-                if verbose:
-                    print('-------------------------------------------')
-                    print('Game end, winner is player ' + str(winner))
-                    print('Player 1 = ' +  turns[0])
-                    print('Player 2 = ' +  turns[1])
-
-                # Compute M_opt and M_rand on the specified players every 250 games
-                if evaluate is not None and (game_number + 1) % 250 == 0:
-                    evaluation = [game_number]
-                    
-                    if evaluate == player_1 or evaluate=="both":
-                        player_1.eval()
-                        m_opt = measure_score(player_1, "opt", verbose=False)
-                        m_rand = measure_score(player_1, "rand", verbose=False)
-                        evaluation.append(m_opt)
-                        evaluation.append(m_rand)
-                        player_1.train()
-                    
-                    # Don't evalute twice if training against itself
-                    if (evaluate == player_2 or evaluate=="both") and player_1 != player_2:
-                        player_2.eval()
-                        m_opt = measure_score(player_2, "opt", verbose=False)
-                        m_rand = measure_score(player_2, "rand", verbose=False)
-                        evaluation.append(m_opt)
-                        evaluation.append(m_rand)
-                        player_2.train()
-                        
-                    evalutions.append(evaluation)
-                    
-                results.append([game_number + 1, reward_1, reward_2, turns[0], turns[1], loss_1, loss_2])
-                break
-    
-    game_res = pd.DataFrame(data=results, columns=['game', 'reward_1', 'reward_2', 'player_1', 'player_2', 'loss_1', 'loss_2'])
-    perf_columns = ["game"]
-    
-    if evaluate == player_1 or evaluate == "both":
-        perf_columns += ["player_1_opt", "player_1_rand"]
-    if (evaluate == player_2 or evaluate == "both") and player_1 != player_2:
-        perf_columns += ["player_2_opt", "player_2_rand"]
-        
-    agents_perf = pd.DataFrame(data=evalutions, columns=perf_columns)
-
-    results = game_res if evaluate is None else game_res.merge(agents_perf, how="outer", on="game")
-    return results
-# -
-
 
