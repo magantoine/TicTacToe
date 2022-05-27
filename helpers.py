@@ -265,6 +265,8 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbo
     seed: number used to determine randomness of the successive games
     """
     
+    future_seed = random.randint(0, 32767)
+
     player_2 = OptimalPlayer(epsilon = 0 if opponent_strategy == 'opt' else 1 )
     env = TictactoeEnv()
     turns = np.array(['O', 'X'])
@@ -279,7 +281,7 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbo
 
         new_seed = rng.randint(low=0, high=32767)
         np.random.seed(new_seed)
-        random.seed(new_seed)
+        #random.seed(new_seed)
 
         env.reset()
         grid, _, __ = env.observe()
@@ -295,7 +297,7 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbo
                 move = player_2.act(grid, player=turns[1], n=game_number)
             
 
-            grid, end, winner = env.step(move, print_grid=True)
+            grid, end, winner = env.step(move)
 
             if end:
                 gain = 1 if winner == turns[0] else (-1 if winner == turns[1] else 0)
@@ -305,9 +307,14 @@ def measure_score(player_1, opponent_strategy='opt', n_games=500, seed=42, verbo
                     n_even += gain == 0
                 m += gain
                 break
+    
+    np.random.seed(future_seed)
+    random.seed(future_seed)
+    
     if verbose:
         return m / n_games, n_win, n_lose, n_even
 
+    
     return m / n_games
 
 

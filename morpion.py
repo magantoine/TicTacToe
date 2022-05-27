@@ -20,6 +20,10 @@ import seaborn as sns
 from tic_env import OptimalPlayer
 from helpers import QPlayer, play_n_games, DQNPlayer, RESULT_FOLDER
 
+import helpers
+from importlib import reload
+reload(helpers)
+
 # $Q(S, A) ← Q(S, A) + α(R + γ max_a Q(S′, a) − Q(S, A))$
 
 # ## 2.1 Learning from experts
@@ -138,7 +142,7 @@ plt.show()
 
 # ### Question 3
 
-LOAD_RESULTS = True
+LOAD_RESULTS = False
 
 if not LOAD_RESULTS:
     player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=1))
@@ -273,7 +277,7 @@ else:
 autotrain_eps.player_1_rand.max(), autotrain_eps.player_1_opt.max()
 
 # +
-f, a = plt.subplots(2, 2, figsize=(15, 10))
+f, a = plt.subplots(3, 2, figsize=(15, 10), sharey=True)
 for eps, ax in zip(eps_opts, a.flatten()):
     sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_rand", x="game", label="M_rand", ax=ax)
     sns.lineplot(data=autotrain_eps[autotrain_eps.eps == eps], y="player_1_opt", x="game", label="M_opt", ax=ax, color="orange")
@@ -285,7 +289,7 @@ plt.legend()
 f.text(0.5, 0, "Number of games")
 f.text(0, 0.5, "Metric", rotation=90)
 f.suptitle("Evolution of $M_{rand}$ and $M_{opt}$ when training against Opt($\epsilon$)")
-
+plt.tight_layout()
 plt.savefig("plots/question7_2.jpg", dpi=700)
 plt.show()
 # -
@@ -310,13 +314,15 @@ if not LOAD_RESULT:
 else:
     effect = pd.read_csv(RESULT_FOLDER + "question8.csv")
 
-f, a = plt.subplots(2, 2, figsize=(15, 10))
+f, a = plt.subplots(3, 2, figsize=(15, 10))
 for n_star, ax in zip(ns_star, a.flatten()):
     sns.lineplot(data=effect[effect.n_star == n_star], x="game", y="player_1_rand", ax=ax, label="rand")
     sns.lineplot(data=effect[effect.n_star == n_star], x="game", y="player_1_opt", ax=ax, label="opt", color="orange")
     ax.set_ylabel("metric value")
     ax.set_title(f"n* = {n_star}")
 plt.legend()
+plt.tight_layout()
+plt.savefig("plots/question8.jpg")
 plt.show()
 
 # ### Question 9
@@ -324,9 +330,9 @@ plt.show()
 # What are the highest values of Mopt and Mrand that you could achieve after playing 20’000
 # games?
 #
-# M_opt: -1
+# M_opt: -0.4
 #
-# M_rand:0.77
+# M_rand:0.4
 #
 #
 # ### Question 10
@@ -336,21 +342,9 @@ plt.show()
 # Expected answer: A figure with 3 subplots of 3 different states with Q-values shown at available actions
 # (caption length < 200 words).
 
-for state, q_val in player.q_values.items():
-    if sum(abs(np.array(state))) != 8:
-        if any(q_val > 0.025):
-            winning_state = state
-        if any(q_val < -0.025):
-            losing_state = state
-        if sum(q_val != 0) >= 2 and all(abs(q_val) < 0.01):
-            unsure_state = state
-
-player.set_player('X')
-for state in [winning_state, losing_state, unsure_state]:
-    sns.heatmap(player.q_values['X'][state].reshape((3,3)), cmap='Blues', annot=np.array(state).reshape((3,3)))
-    plt.show()
-
 # # DQN
+
+
 
 # +
 player_1 = DQNPlayer()
