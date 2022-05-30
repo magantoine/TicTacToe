@@ -6,11 +6,11 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.8
+#       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: ann
+#     display_name: Python 3
 #     language: python
-#     name: venv
+#     name: python3
 # ---
 
 # %load_ext autoreload
@@ -69,7 +69,7 @@ plt.savefig("plots/question1.jpg", dpi=100)
 
 # ### Question 2
 
-LOAD_RESULTS = False
+LOAD_RESULTS = True
 
 # + pycharm={"name": "#%%\n"}
 ## player to train with decreasing epsilon
@@ -93,7 +93,7 @@ ns_star = np.arange(0,42_000,8_000)
 ns_star[0] = 1
 ns_star
 
-LOAD_RESULTS = False
+LOAD_RESULTS = True
 
 if not LOAD_RESULTS:
     results = []
@@ -140,7 +140,7 @@ plt.show()
 
 # ### Question 3
 
-LOAD_RESULTS = False
+LOAD_RESULTS = True
 
 if not LOAD_RESULTS:
     player_1 = QPlayer(epsilon = lambda n: decreasing_epsilon(n, n_star=1))
@@ -164,9 +164,7 @@ if not LOAD_RESULTS:
         temp_res = play_n_games(player_1, player_2, n_games=20_000, update_players=1, verbose=False, evaluate=player_1)
         temp_res["n_star"] = n_star
         res.append(temp_res)
-
-    n_star_eval = pd.concat(res)
-    n_star_eval = n_star_eval.dropna().drop(["reward_1", "reward_2"], axis=1)
+    n_star_eval = pd.concat(res).drop(["reward_1", "reward_2","loss_1", "loss_2"],  axis=1).dropna()
 
     n_star_eval.to_csv(RESULT_FOLDER + "n_star_eval_rand_opt.csv")
 else:
@@ -226,16 +224,15 @@ plt.savefig("plots/question4.jpg", dpi=700);
 
 # ### Question 5
 #
-# The highest $M_{opt}$ achieved in 20 000 games is 0.2 and $M_{rand}$ is 0.8
+# The highest $M_{opt}$ achieved in 20 000 games is 0.5 and $M_{rand}$ is 0.8
 #
 #
 # ### Question 6
 #
-# Given that there is exists an optimal strategy, there also exists optimal Q-values which are unique up to there ordering (for a given state, the action order is the same for all optimal Q-values).
-#
+#  For a given pair, $(s, a)$, the agent that learned against the optimal player will have different values for $Q(s, a)$ than for the player that learned against the random player. Suppose move the opponent can win in a single move, the optimal player would always play this move, unlike the random one. As a result, the $Q$-value of the previous state-action pair learned against the optimal player will converge to $-1$. However, that may not converge to $-1$ against the random player because he's not going to play that move all the time, and it may result in a winning situation.
 # ### Question 7
 
-LOAD_RESULTS = False
+LOAD_RESULTS = True
 
 # +
 ## build a Qplayer that you are going to train against itself
@@ -245,8 +242,8 @@ player = QPlayer(epsilon=0.4)
 autotrain_result = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
 
 # +
-sns.lineplot(data=autotrain_result.dropna(), y="player_1_rand", x="game", label="M_rand")
-g = sns.lineplot(data=autotrain_result.dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
+sns.lineplot(data=autotrain_result.drop(['loss_1', "loss_2"], axis=1).dropna(), y="player_1_rand", x="game", label="M_rand")
+g = sns.lineplot(data=autotrain_result.drop(['loss_1', "loss_2"], axis=1).dropna(), y="player_1_opt", x="game", label="M_opt", color="orange")
 g.set_ylabel("metric")
 g.set_title("performance of self learning")
 plt.legend()
@@ -266,7 +263,7 @@ if not LOAD_RESULTS:
         temp_res = play_n_games(player, player, n_games=20_000, update_players="both", evaluate=player)
         temp_res["eps"] = eps
         eps_res.append(temp_res)
-    autotrain_eps = pd.concat(eps_res).dropna()
+    autotrain_eps = pd.concat(eps_res).drop(["loss_1", "loss_2"], axis=1).dropna()
     autotrain_eps.to_csv(RESULT_FOLDER + "question7.csv")
 else:
     autotrain_eps = pd.read_csv(RESULT_FOLDER + "question7.csv", index_col=0)
@@ -295,19 +292,19 @@ plt.show()
 
 # ### Question 8
 
-LOAD_RESULT = False
+LOAD_RESULT = True
 
 if not LOAD_RESULT:
     results = []
 
-    for n_star in ns_star :
+    for n_star in n_stars :
         print(f">> n* = {n_star}")
-        player = QPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = n_star))
+        player = QPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star))
         result = play_n_games(player, player, n_games=20_000, update_players="both", verbose=False, evaluate=player)
         result["n_star"] = n_star
         results.append(result)
 
-    effect = pd.concat(results).dropna()
+    effect = pd.concat(results).drop(["loss_1", "loss_2"], axis=1).dropna()
     effect.to_csv(RESULT_FOLDER + "question8.csv")
 else:
     effect = pd.read_csv(RESULT_FOLDER + "question8.csv")
@@ -339,6 +336,48 @@ plt.show()
 # using heat maps). Does the result make sense? Did the agent learn the game well?
 # Expected answer: A figure with 3 subplots of 3 different states with Q-values shown at available actions
 # (caption length < 200 words).
+
+# +
+LOAD_RESULTS = True
+
+if not LOAD_RESULTS:
+    player = QPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
+    play_n_games(player, player, n_games=20_000, update_players="both") 
+    with open(join(RESULT_FOLDER,'dqn_player.pkl'), "wb") as f:
+        dill.dump(player, f)
+else:
+    with open(join(RESULT_FOLDER,'dqn_player.pkl'), "rb") as f:
+        player = dill.load(f)
+        player.eval()
+
+state_1 = (np.array([[1, -1, -1],
+            [1, 0, 0],
+            [0, 0, 0]]), 'X', 'Does the model win?')
+state_2 = (np.array([[1, -1, 0],
+            [0, 1, 0],
+            [0, 0, 0]]), 'O', 'Does the model block?')
+state_3 = (np.array([[1, -1, 0], 
+            [1, -1, 0],
+            [0, 0, 0]]), 'X', 'Does the model win or block?')
+
+
+fig, axes = plt.subplots(1, 3, figsize=(16,5))
+for i, (grid, player_val, caption) in enumerate([state_1, state_2, state_3]):
+    q_values = player.get_q_values(grid).reshape((3,3))
+    annot = np.array(grid).astype(str)
+    annot = np.where(annot == '1', 'X', annot)
+    annot = np.where(annot == '-1', 'O', annot)
+    annot = np.where(annot == '0', '-', annot)
+    sns.heatmap(q_values, cmap='Blues',annot=annot, ax=axes[i], fmt='', 
+                annot_kws={"size": 25}, xticklabels=False, yticklabels=False)
+    axes[i].set_title(caption + '\n Turn to play: ' + player_val)
+
+fig.tight_layout()
+plt.savefig('plots/question10.png', dpi=200)
+
+plt.show()
+
+# -
 
 # # DQN
 
@@ -573,7 +612,7 @@ LOAD_RESULTS = True
 
 if not LOAD_RESULTS:
     player = DQNPlayer(epsilon=lambda n: decreasing_epsilon(n, n_star = 24_000))
-    result = play_n_games_dqn(player, player, n_games=N_GAMES, update_players="both", verbose=False)
+    result = play_n_games(player, player, n_games=N_GAMES, update_players="both", verbose=False)
     with open(join(RESULT_FOLDER,'dqn_player.pkl'), "wb") as f:
         dill.dump(player, f)
 else:
